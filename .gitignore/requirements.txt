@@ -1,0 +1,31 @@
+# BIS Standards Recommendation Engine — pinned dependencies
+# Install: pip install -r requirements.txt
+
+# PDF parsing
+pdfplumber==0.11.4
+
+# BM25 sparse retrieval
+rank-bm25==0.2.2
+
+# Dense embeddings
+sentence-transformers==2.7.0
+torch==2.1.2
+transformers==4.34.1
+
+# Vector store
+faiss-cpu==1.9.0.post1
+
+# LLM — Groq (primary)
+groq==1.2.0
+
+# LLM — Google Gemini (fallback)
+google-generativeai==0.7.2
+
+# Web UI
+gradio>=5.0.0
+
+# Numerical computing (>=2.0.0 required for Python 3.13; pinned to tested version)
+numpy==2.4.3
+
+# Utilities
+tqdm==4.66.4
