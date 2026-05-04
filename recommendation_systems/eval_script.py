@@ -10,7 +10,7 @@ def normalize_std(std_string):
 
 def evaluate_results(results_file):
     try:
-        with open(results_file, "r") as f:
+        with open(results_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
         print(f"Error reading results file: {e}")

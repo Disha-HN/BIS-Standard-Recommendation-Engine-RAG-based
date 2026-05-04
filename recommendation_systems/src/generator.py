@@ -213,21 +213,29 @@ def call_groq(query: str, context: str, api_key: str) -> Optional[str]:
 
 
 def call_gemini(query: str, context: str, api_key: str) -> Optional[str]:
-    """Fallback: Call Google Gemini 1.5 Flash API."""
+    """Fallback: Call Google Gemini 1.5 Flash API with timeout."""
     try:
         import google.generativeai as genai  # type: ignore
+        import socket
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-1.5-flash")
         prompt = f"{SYSTEM_PROMPT}\n\n{USER_PROMPT_TEMPLATE.format(query=query, context=context)}"
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=512,
-                temperature=0.1,
-            ),
-        )
-        return response.text
+        
+        # Set request timeout to keep total latency under 5s
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(3.0)  # 3 second timeout for Gemini API
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=512,
+                    temperature=0.1,
+                ),
+            )
+            return response.text
+        finally:
+            socket.setdefaulttimeout(old_timeout)
     except Exception as e:
         logger.warning(f"Gemini API call failed: {e}")
         return None

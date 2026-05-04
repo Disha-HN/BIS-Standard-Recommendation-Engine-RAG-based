@@ -239,19 +239,20 @@ class HybridRetriever:
 
     def _dense_retrieve(self, query: str, top_k: int = TOP_CANDIDATES) -> List[Tuple[int, float]]:
         # Use cached embedding if available (speeds up repeated/similar queries)
-        if query not in self._embed_cache:
+        cache_key = query.lower().strip()  # Normalize cache key for consistency
+        if cache_key not in self._embed_cache:
             emb = self.model.encode(
                 [query], normalize_embeddings=True, show_progress_bar=False
             )
-            self._embed_cache[query] = np.array(emb, dtype=np.float32)
+            self._embed_cache[cache_key] = np.array(emb, dtype=np.float32)
             # Keep cache bounded to 256 entries
             if len(self._embed_cache) > 256:
                 self._embed_cache.pop(next(iter(self._embed_cache)))
-        query_embedding = self._embed_cache[query]
+        query_embedding = self._embed_cache[cache_key]
         scores, indices = self.faiss_index.search(query_embedding, top_k)
         results = []
         for idx, score in zip(indices[0], scores[0]):
-            if idx >= 0:
+            if 0 <= idx < len(self.chunks):
                 results.append((int(idx), float(score)))
         return results
 
@@ -387,8 +388,15 @@ class HybridRetriever:
             logger.warning("Empty query received; returning empty results.")
             return []
 
-        from src.query_expander import get_query_variants
-        variants = get_query_variants(query)
+        try:
+            from src.query_expander import get_query_variants
+            variants = get_query_variants(query)
+            if not variants or not isinstance(variants, list):
+                logger.warning(f"Query expansion returned invalid result; using original query")
+                variants = [query]
+        except Exception as e:
+            logger.warning(f"Query expansion failed: {e}; falling back to original query")
+            variants = [query]
 
         # Collect BM25 + dense results for every query variant
         all_bm25: List[List[Tuple[int, float]]] = []

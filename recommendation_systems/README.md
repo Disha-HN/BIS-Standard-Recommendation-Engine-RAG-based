@@ -134,6 +134,15 @@ Features:
 - 18 example queries across 5 categories
 - Query history panel
 
+**Latency (UI Mode):**
+- **Retrieval-only (default):** ~0.3–0.5s per query
+  - IS codes come from retrieved chunk metadata
+  - No LLM calls → fast, deterministic, offline-ready
+- **With LLM rationale (optional):** ~2–3s per query
+  - Adds Groq/Gemini API network latency
+  - Provides 1–2 sentence explanations per standard
+  - Enable with: `$env:ENABLE_UI_LLM = "1"` (Windows) or `export ENABLE_UI_LLM=1` (Linux/macOS)
+
 ---
 
 ## API Keys (optional — for LLM rationale text in UI)
@@ -157,7 +166,9 @@ Without a key, the system uses retrieval-only mode — IS codes and scores are i
 | Issue | Solution |
 |-------|----------|
 | `Index file not found` | Run `python src/indexer.py` to build indexes first |
-| Latency > 5s | Use `--no-llm` flag — retrieval avg is 0.39s |
+| **UI latency > 2s** | Retrieval-only mode (default) is 0.3–0.5s. If you see >2s, unset `ENABLE_UI_LLM`: unset env var or restart with `$env:ENABLE_UI_LLM = "0"` |
+| **Latency > 5s in inference** | Use `--no-llm` flag in `inference.py` — pure retrieval is ~0.39s |
+| LLM calls failing | Check `GROQ_API_KEY` and `GEMINI_API_KEY` env vars are set; verify API quota |
 | Port 7861 in use | App auto-selects next available port |
 | Slow first query | Embedding model loads once on startup (~15s); subsequent queries are fast |
 | Windows NumPy issues | Use Python 3.11 or 3.12 |

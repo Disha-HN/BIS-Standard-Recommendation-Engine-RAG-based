@@ -319,11 +319,14 @@ def query_pipeline(product_description: str) -> str:
     try:
         chunks = _retriever.retrieve(product_description)
 
-        # Always use retrieval-only for speed — LLM only adds rationale text,
-        # IS codes are identical. Only call LLM if key is set AND retrieval was fast.
+        # Retrieval-only mode by default for speed (matches 0.39s benchmark).
+        # LLM calls only if ENABLE_UI_LLM is explicitly set AND retrieval was fast.
+        # This keeps the UI responsive (0.3-0.5s latency) while maintaining
+        # the same IS code accuracy (codes come from chunk metadata, not LLM).
         retrieval_time = time.time() - start
-        groq_key = os.environ.get("GROQ_API_KEY", "") if retrieval_time < 0.5 else ""
-        gemini_key = os.environ.get("GEMINI_API_KEY", "") if retrieval_time < 0.5 else ""
+        enable_llm = os.environ.get("ENABLE_UI_LLM", "").lower() in ("1", "true", "yes")
+        groq_key = os.environ.get("GROQ_API_KEY", "") if enable_llm and retrieval_time < 0.5 else ""
+        gemini_key = os.environ.get("GEMINI_API_KEY", "") if enable_llm and retrieval_time < 0.5 else ""
 
         results = generate(product_description, chunks,
                            groq_api_key=groq_key,
@@ -436,9 +439,13 @@ ABOUT_HTML = """
     <li><strong>BM25 Sparse Retrieval</strong> — exact keyword matching on IS codes &amp; material names (top-20 candidates)</li>
     <li><strong>Dense Semantic Retrieval</strong> — all-MiniLM-L6-v2 embeddings via FAISS IndexFlatIP (top-20 candidates)</li>
     <li><strong>RRF Fusion (k=60)</strong> — combines both ranked lists; false-positive suppression removes known noise codes</li>
-    <li><strong>LLM Rationale</strong> — Groq llama-3.1-8b-instant generates 1–2 sentence explanations (Gemini fallback)</li>
+    <li><strong>LLM Rationale (Optional)</strong> — If enabled: Groq llama-3.1-8b-instant generates 1–2 sentence explanations (Gemini fallback). Adds ~2-3s latency.</li>
     <li><strong>Anti-hallucination</strong> — IS codes are always taken from retrieved chunk metadata, never from LLM output</li>
   </ol>
+  <p style="margin:12px 0;font-size:13px;color:#5a6d7d;background:#f0f9ff;padding:10px 12px;border-left:3px solid #0369a1;border-radius:4px;">
+    <strong>ℹ️ Speed mode:</strong> This UI runs in <strong>retrieval-only mode</strong> by default (0.3–0.5s latency) for best UX. 
+    To enable LLM-generated rationales, set environment variable: <code style="background:#e0e7ff;padding:2px 6px;border-radius:3px;">ENABLE_UI_LLM=1</code>
+  </p>
   <p style="margin:0;font-size:12px;color:#6b7280;">
     Source: <strong>BIS SP 21</strong> — Summaries of Indian Standards for Building Materials &nbsp;|&nbsp;
     Built for <strong>BIS × SS Hackathon 2026</strong>
