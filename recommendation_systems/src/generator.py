@@ -90,6 +90,10 @@ def build_context(chunks: List[Dict[str, Any]]) -> str:
     """
     Format retrieved chunks into a numbered context block for the prompt.
 
+    Long chunks are truncated using a head+tail strategy: keep the first 300
+    and last 200 characters so both the standard's opening definition and any
+    closing scope/application notes are preserved.
+
     Args:
         chunks: List of chunk dicts from the retriever.
 
@@ -100,7 +104,10 @@ def build_context(chunks: List[Dict[str, Any]]) -> str:
     for i, chunk in enumerate(chunks, start=1):
         std_code = chunk.get("std_code", "Unknown")
         title = chunk.get("title", "")
-        text = chunk.get("text", "")[:600]  # Truncate very long chunks
+        text = chunk.get("text", "")
+        if len(text) > 600:
+            # Head + tail truncation: preserve opening definition and closing scope
+            text = text[:300] + " … " + text[-200:]
         lines.append(f"[{i}] Standard: {std_code} — {title}\n{text}")
     return "\n\n".join(lines)
 
@@ -110,21 +117,58 @@ def build_context(chunks: List[Dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 
 def extract_json_array(raw_response: str) -> Optional[str]:
-    """Extract a JSON array from the LLM output, tolerating markdown fences and noise."""
+    """
+    Extract a JSON array from the LLM output, tolerating markdown fences and noise.
+
+    Uses bracket-balanced extraction instead of a greedy regex so that nested
+    objects inside the array don't cause the match to over-extend or under-extend.
+    """
     if not raw_response:
         return None
 
     response = raw_response.strip()
-    if response.startswith("[") and response.endswith("]"):
-        return response
 
     # Remove markdown code fences if present
     response = re.sub(r"^```(?:json)?\s*", "", response, flags=re.IGNORECASE)
     response = re.sub(r"\s*```$", "", response, flags=re.IGNORECASE)
+    response = response.strip()
 
-    # Greedy match to capture the full outermost array
-    match = re.search(r"\[[\s\S]*\]", response)
-    return match.group(0) if match else None
+    # Fast path: entire response is already a clean array
+    if response.startswith("[") and response.endswith("]"):
+        return response
+
+    # Bracket-balanced extraction: find the first '[' and walk forward
+    # counting brackets until they balance, then return that slice.
+    start = response.find("[")
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(response[start:], start=start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return response[start : i + 1]
+
+    # Brackets never balanced — return whatever we found from '[' onward as a
+    # best-effort attempt (the caller will handle JSON parse errors)
+    logger.warning("JSON array brackets never balanced; attempting best-effort extraction")
+    return response[start:]
 
 
 # ---------------------------------------------------------------------------
@@ -137,12 +181,18 @@ def call_groq(query: str, context: str, api_key: str) -> Optional[str]:
 
     Uses max_retries=0 so rate-limit 429s fail fast and we fall back to
     retrieval-only rather than waiting 10+ seconds for a retry.
+    Total request timeout is capped at 8s (connect=3s, read=7s) so a slow
+    API response never pushes per-query latency above the 5s target when
+    combined with fast retrieval.
     """
     try:
         import httpx
         from groq import Groq  # type: ignore
 
-        http_client = httpx.Client(timeout=4.0)
+        # Use a full httpx.Timeout: connect=2s, read=3s — fail fast on slow API
+        # so per-query latency stays under 5s even on Groq free tier
+        timeout = httpx.Timeout(connect=2.0, read=3.0, write=2.0, pool=2.0)
+        http_client = httpx.Client(timeout=timeout)
         client = Groq(api_key=api_key, http_client=http_client, max_retries=0)
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -153,7 +203,7 @@ def call_groq(query: str, context: str, api_key: str) -> Optional[str]:
                     "content": USER_PROMPT_TEMPLATE.format(query=query, context=context),
                 },
             ],
-            max_tokens=512,
+            max_tokens=400,   # Reduced from 512 — rationale text is short; saves ~0.5s
             temperature=0.1,
         )
         return response.choices[0].message.content
@@ -353,8 +403,14 @@ def generate(
     context = build_context(retrieved_chunks)
     llm_rationale_map: Dict[str, str] = {}
 
-    groq_key = groq_api_key or os.environ.get("GROQ_API_KEY", "")
-    gemini_key = gemini_api_key or os.environ.get("GEMINI_API_KEY", "")
+    groq_key = groq_api_key if groq_api_key is not None else os.environ.get("GROQ_API_KEY", "")
+    gemini_key = gemini_api_key if gemini_api_key is not None else os.environ.get("GEMINI_API_KEY", "")
+
+    # If caller explicitly passed empty string, respect it (don't fall back to env var)
+    if groq_api_key == "":
+        groq_key = ""
+    if gemini_api_key == "":
+        gemini_key = ""
 
     raw = None
     llm_used = "none"

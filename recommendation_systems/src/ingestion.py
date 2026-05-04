@@ -60,22 +60,71 @@ def extract_is_code(text: str) -> str:
 
 
 def infer_category(text: str) -> str:
-    """Infer building material sub-category from chunk text."""
+    """
+    Infer building material sub-category from chunk text.
+
+    Order matters — more specific product categories are checked first
+    so that standards which mention generic materials (e.g. door frames
+    specifying 'use OPC cement') are not miscategorised as Cement/Steel.
+    """
     text_lower = text.lower()
-    if any(kw in text_lower for kw in ["cement", "portland", "pozzolana", "slag cement", "clinker"]):
-        return "Cement"
-    if any(kw in text_lower for kw in ["steel", "tmt", "bar", "structural steel", "wire rod", "reinforcement"]):
-        return "Steel"
-    if any(kw in text_lower for kw in ["concrete", "reinforced concrete", "plain concrete", "rcc", "pcc"]):
-        return "Concrete"
-    if any(kw in text_lower for kw in ["aggregate", "coarse aggregate", "fine aggregate", "gravel", "crushed stone"]):
-        return "Aggregates"
-    if any(kw in text_lower for kw in ["brick", "tile", "clay brick", "burnt clay", "paver"]):
-        return "Bricks & Tiles"
-    if any(kw in text_lower for kw in ["waterproof", "damp proof", "sealant", "bitumen", "membrane"]):
-        return "Waterproofing"
-    if any(kw in text_lower for kw in ["pipe", "precast", "asbestos", "block", "masonry"]):
+
+    # ── Specific product categories first ─────────────────────────────────────
+    # Pipes, precast products, blocks, masonry units
+    if any(kw in text_lower for kw in ["pipe", "precast concrete pipe", "drainage pipe",
+                                        "sewer pipe", "water main"]):
         return "Concrete Products"
+    # Door/window frames, partition panels — must come before cement/steel/concrete
+    if any(kw in text_lower for kw in ["door frame", "window frame", "door and window",
+                                        "partition", "door shutter", "ventilator frame"]):
+        return "Concrete Products"
+    # Asbestos / fibre cement sheets
+    if any(kw in text_lower for kw in ["asbestos cement", "corrugated sheet", "roofing sheet",
+                                        "fibre cement", "cladding sheet"]):
+        return "Concrete Products"
+    # Blocks and masonry units
+    if any(kw in text_lower for kw in ["masonry unit", "masonry block", "concrete block",
+                                        "hollow block", "solid block", "aerated block",
+                                        "autoclaved block"]):
+        return "Concrete Products"
+    # Bricks and tiles
+    if any(kw in text_lower for kw in ["brick", "clay brick", "burnt clay", "paver",
+                                        "floor tile", "wall tile", "ceramic tile"]):
+        return "Bricks & Tiles"
+    # Waterproofing
+    if any(kw in text_lower for kw in ["waterproof", "damp proof", "sealant", "bitumen",
+                                        "membrane", "waterproofing compound"]):
+        return "Waterproofing"
+    # Aggregates
+    if any(kw in text_lower for kw in ["aggregate", "coarse aggregate", "fine aggregate",
+                                        "gravel", "crushed stone", "natural sand"]):
+        return "Aggregates"
+
+    # ── Generic material categories ────────────────────────────────────────────
+    # Steel — check before concrete because reinforced concrete chunks mention both
+    if any(kw in text_lower for kw in ["tmt bar", "deformed bar", "mild steel bar",
+                                        "structural steel", "wire rod", "wire fabric",
+                                        "epoxy coated bar", "high tensile steel",
+                                        "prestressed wire", "welded wire"]):
+        return "Steel"
+    # Concrete — generic
+    if any(kw in text_lower for kw in ["reinforced concrete", "plain concrete", "prestressed concrete",
+                                        "ready mix", "concrete mix"]):
+        return "Concrete"
+    # Cement — only if no more specific category matched above
+    if any(kw in text_lower for kw in ["portland cement", "pozzolana cement", "slag cement",
+                                        "sulphate resisting cement", "supersulphated cement",
+                                        "hydrophobic cement", "high alumina cement",
+                                        "white cement", "masonry cement"]):
+        return "Cement"
+    # Broad fallbacks
+    if "cement" in text_lower and "concrete" not in text_lower:
+        return "Cement"
+    if any(kw in text_lower for kw in ["steel", "reinforcement", "bar", "rod"]):
+        return "Steel"
+    if "concrete" in text_lower:
+        return "Concrete"
+
     return "Building Materials"
 
 

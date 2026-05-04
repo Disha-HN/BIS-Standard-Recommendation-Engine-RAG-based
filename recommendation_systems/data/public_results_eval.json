@@ -6,9 +6,9 @@
       "IS 8042: 1989",
       "IS 8112: 1989",
       "IS 8043: 1991",
-      "IS 12330: 1988"
+      "IS 455: 1989"
     ],
-    "latency_seconds": 0.074,
+    "latency_seconds": 0.6876,
     "expected_standards": [
       "IS 269: 1989"
     ]
@@ -22,7 +22,7 @@
       "IS 9142: 1979",
       "IS 2686: 1977"
     ],
-    "latency_seconds": 0.0433,
+    "latency_seconds": 0.2408,
     "expected_standards": [
       "IS 383: 1970"
     ]
@@ -36,7 +36,7 @@
       "IS 13990: 1994",
       "IS 7319: 1974"
     ],
-    "latency_seconds": 0.0369,
+    "latency_seconds": 0.2338,
     "expected_standards": [
       "IS 458: 2003"
     ]
@@ -44,13 +44,12 @@
   {
     "id": "PUB-04",
     "retrieved_standards": [
-      "IS 2185 (Part 1): 1979",
       "IS 2185 (Part 2): 1983",
-      "IS 12440: 1988",
-      "IS 2185 (Part 3): 1984",
-      "IS 3466: 1988"
+      "IS 9142: 1979",
+      "IS 2185 (Part 1): 1979",
+      "IS 12440: 1988"
     ],
-    "latency_seconds": 0.0356,
+    "latency_seconds": 0.4601,
     "expected_standards": [
       "IS 2185 (Part 2): 1983"
     ]
@@ -59,12 +58,12 @@
     "id": "PUB-05",
     "retrieved_standards": [
       "IS 459: 1992",
+      "IS 2096: 1992",
       "IS 1626: 1984",
       "IS 13008: 1990",
-      "IS 14871: 2000",
-      "IS 10388: 1982"
+      "IS 14871: 2000"
     ],
-    "latency_seconds": 0.0366,
+    "latency_seconds": 0.4628,
     "expected_standards": [
       "IS 459: 1992"
     ]
@@ -78,7 +77,7 @@
       "IS 8042: 1989",
       "IS 12330: 1988"
     ],
-    "latency_seconds": 0.0416,
+    "latency_seconds": 0.23,
     "expected_standards": [
       "IS 455: 1989"
     ]
@@ -92,7 +91,7 @@
       "IS 269: 1989",
       "IS 12330: 1988"
     ],
-    "latency_seconds": 0.0403,
+    "latency_seconds": 0.5972,
     "expected_standards": [
       "IS 1489 (Part 2): 1991"
     ]
@@ -106,7 +105,7 @@
       "IS 4832 (Part 3): 1968",
       "IS 4832 (Part 2): 1969"
     ],
-    "latency_seconds": 0.0461,
+    "latency_seconds": 0.2149,
     "expected_standards": [
       "IS 3466: 1988"
     ]
@@ -117,10 +116,10 @@
       "IS 6909: 1990",
       "IS 12330: 1988",
       "IS 455: 1989",
-      "IS 5539: 1969",
-      "IS 269: 1989"
+      "IS 269: 1989",
+      "IS 8043: 1991"
     ],
-    "latency_seconds": 0.0757,
+    "latency_seconds": 0.5143,
     "expected_standards": [
       "IS 6909: 1990"
     ]
@@ -134,7 +133,7 @@
       "IS 12330: 1988",
       "IS 269: 1989"
     ],
-    "latency_seconds": 0.0279,
+    "latency_seconds": 0.2388,
     "expected_standards": [
       "IS 8042: 1989"
     ]

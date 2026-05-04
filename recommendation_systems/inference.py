@@ -35,9 +35,19 @@ BM25_PATH = str(PROJECT_ROOT / "indexes" / "bm25.pkl")
 FAISS_PATH = str(PROJECT_ROOT / "indexes" / "faiss.index")
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-# Minimum seconds between LLM calls to stay under Groq free-tier rate limit
-# (30 req/min = 2s apart; use 2.2s for safety)
-LLM_REQUEST_INTERVAL = 2.2
+# Minimum seconds between LLM calls to stay under Groq free-tier rate limit.
+# Free tier: 6000 TPM. Each call ~1200 tokens → max 5 calls/min.
+# With 3s read timeout, each call takes at most 3s → 5 calls in 15s = fine.
+# Override via LLM_REQUEST_INTERVAL env var for paid tiers.
+_env_interval = os.environ.get("LLM_REQUEST_INTERVAL", "")
+try:
+    LLM_REQUEST_INTERVAL = float(_env_interval) if _env_interval else 1.5
+except ValueError:
+    logger.warning(f"Invalid LLM_REQUEST_INTERVAL value {_env_interval!r}; using default 1.5s")
+    LLM_REQUEST_INTERVAL = 1.5
+
+# Maximum allowed query length (characters) — enforced in both CLI and UI paths
+MAX_QUERY_LENGTH = 2000
 
 
 def _dedupe_and_clean(
@@ -137,6 +147,14 @@ def run_inference(
             if not query_text:
                 logger.warning(f"Empty query for {query_id}; skipping.")
             else:
+                # Enforce max query length
+                if len(query_text) > MAX_QUERY_LENGTH:
+                    logger.warning(
+                        f"Query {query_id} exceeds max length "
+                        f"({len(query_text)} > {MAX_QUERY_LENGTH} chars); truncating."
+                    )
+                    query_text = query_text[:MAX_QUERY_LENGTH]
+
                 # Retrieve top-5 chunks
                 chunks = retriever.retrieve(query_text)
 
@@ -146,14 +164,19 @@ def run_inference(
                     if elapsed_since_last < LLM_REQUEST_INTERVAL:
                         time.sleep(LLM_REQUEST_INTERVAL - elapsed_since_last)
 
-                # Generate recommendations (LLM or fallback)
+                # Generate recommendations (LLM or fallback).
+                # Hard latency guard: skip LLM if retrieval already took > 1s,
+                # keeping total per-query time well under the 5s target.
+                retrieval_time = time.time() - start_time
+                use_llm = (groq_api_key or gemini_api_key) and retrieval_time < 1.0
+
                 recommendations = generate(
                     query_text,
                     chunks,
-                    groq_api_key=groq_api_key,
-                    gemini_api_key=gemini_api_key,
+                    groq_api_key=groq_api_key if use_llm else "",
+                    gemini_api_key=gemini_api_key if use_llm else "",
                 )
-                if groq_api_key or gemini_api_key:
+                if use_llm:
                     last_llm_call_time = time.time()
 
                 # Extract IS codes — from LLM output if available, else from chunk metadata
