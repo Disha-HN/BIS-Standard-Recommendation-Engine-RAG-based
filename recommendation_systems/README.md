@@ -67,7 +67,7 @@ Query Expander
 pip install -r requirements.txt
 ```
 
-### 2. Build indexes (one-time, ~2 min)
+### 2. Build indexes
 
 ```bash
 # Parse BIS SP 21 PDF into structured chunks
@@ -79,7 +79,7 @@ python src/indexer.py --chunks data/chunks.json --bm25-out indexes/bm25.pkl --fa
 
 ---
 
-## Inference (Judge Command)
+## Inference
 
 ```bash
 python inference.py --input hidden_private_dataset.json --output team_results.json --no-llm
@@ -88,7 +88,7 @@ python inference.py --input hidden_private_dataset.json --output team_results.js
 The `--no-llm` flag gives **0.39s avg latency** (100x under the 5s limit).
 IS codes always come from retrieved chunk metadata — never from LLM output.
 
-**Output schema (strict):**
+**Output schema :**
 ```json
 [
   {
@@ -145,8 +145,7 @@ Features:
 
 ---
 
-## API Keys (optional — for LLM rationale text in UI)
-
+## API Keys 
 ```bash
 # Windows PowerShell
 $env:GROQ_API_KEY = "your_key_here"
